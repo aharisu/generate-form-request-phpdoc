@@ -1,0 +1,38 @@
+{
+    "name": "aharisu/generate-form-request-phpdoc",
+    "description": "Generate PHPDoc properties automatically based on the rules specification of the FormRequest class",
+    "keywords": [
+        "laravel",
+        "php",
+        "formrequest",
+        "phpdoc",
+        "type",
+        "generate"
+    ],
+    "license": [
+        "Apache-2.0",
+        "MIT"
+    ],
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "aharisu\\GenerateFormRequestPHPDoc\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Tsukamoto Daisuke",
+            "email": "foo.yobina@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.0",
+        "phpstan/phpdoc-parser": "^1.18",
+        "composer/class-map-generator": "^1.0",
+        "laravel/framework": "^8 || ^9 || ^10"
+    },
+    "require-dev": {
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
