@@ -87,8 +87,6 @@ class GenerateCommand extends Command
                     continue;
                 }
 
-                $this->output->info($className);
-
                 $rules = $request->rules();
                 $rulesTree = $this->parseRules($rules);
 
