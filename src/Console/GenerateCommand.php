@@ -169,7 +169,8 @@ class GenerateCommand extends Command
             if (gettype($rule) === 'string') {
                 $rule = Arr::first(explode(':', $rule));
                 $text = match ($rule) {
-                    'integer', 'numeric' => 'int',
+                    'integer', 'int' => 'int',
+                    'numeric' => 'int|float',
                     'string', 'email' => 'string',
                     'boolean' => 'bool',
                     'array' => 'array',
