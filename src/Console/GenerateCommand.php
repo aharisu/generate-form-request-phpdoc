@@ -82,12 +82,21 @@ class GenerateCommand extends Command
                     continue;
                 }
 
-                $request = new $className();
-                if (method_exists($request, 'rules') === false) {
+                try {
+                    $request = new $className();
+                    if (method_exists($request, 'rules') === false) {
+                        continue;
+                    }
+
+                    $rules = $request->rules();
+                } catch (Exception $e) {
+                    $this->error(join(PHP_EOL, [
+                        "An error occurred.",
+                        "Class: {$className}",
+                        "Message: {$e->getMessage()}",
+                    ]));
                     continue;
                 }
-
-                $rules = $request->rules();
                 $rulesTree = $this->parseRules($rules);
 
                 $phpDocNodeAry = $this->ruleNodeTreeToPropertyTagValueNode($rulesTree);
