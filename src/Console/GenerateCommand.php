@@ -82,7 +82,7 @@ class GenerateCommand extends Command
                     continue;
                 }
 
-                $request = $this->laravel->make($className);
+                $request = new $className();
                 if (method_exists($request, 'rules') === false) {
                     continue;
                 }
