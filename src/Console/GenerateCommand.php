@@ -32,7 +32,7 @@ class GenerateCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'form-request:generate';
+    protected $signature = 'form-request:generate {targets?* : The target files}';
 
     /**
      * The console command description.
@@ -56,12 +56,21 @@ class GenerateCommand extends Command
         $dir = 'app/Http/Requests';
         $dir = base_path($dir);
 
+        [$isTargetSpecify, $targetClasses, $targetFiles] = $this->getTargetClassesAndFiles();
+
         $classNames = [];
         if (is_dir($dir)) {
             $classMap = ClassMapGenerator::createMap($dir);
             ksort($classMap);
-            foreach ($classMap as $className => $_path) {
-                $classNames[] = $className;
+            foreach ($classMap as $className => $path) {
+                //引数でファイル指定がない場合は全体を対象にする
+                //もしくは、引数で指定されたファイルのみ対象にする
+                if (
+                    $isTargetSpecify === false
+                    || (in_array($path, $targetFiles, true) || in_array($className, $targetClasses, true))
+                ) {
+                    $classNames[] = $className;
+                }
             }
         }
 
@@ -146,6 +155,25 @@ class GenerateCommand extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * @return array{0: bool, 1: string[], 2: string[]}
+     */
+    private function getTargetClassesAndFiles(): array
+    {
+        $targets = $this->argument('targets');
+        $targetClasses = [];
+        $targetFiles = [];
+        foreach ($targets as $target) {
+            if (class_exists($target)) {
+                $targetClasses[] = $target;
+            } elseif (($path = realpath($target)) !== false) {
+                $targetFiles[] = $path;
+            }
+        }
+
+        return [count($targets) !== 0, $targetClasses, $targetFiles];
     }
 
     /**
