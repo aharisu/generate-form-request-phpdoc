@@ -56,23 +56,7 @@ class GenerateCommand extends Command
         $dir = 'app/Http/Requests';
         $dir = base_path($dir);
 
-        [$isTargetSpecify, $targetClasses, $targetFiles] = $this->getTargetClassesAndFiles();
-
-        $classNames = [];
-        if (is_dir($dir)) {
-            $classMap = ClassMapGenerator::createMap($dir);
-            ksort($classMap);
-            foreach ($classMap as $className => $path) {
-                //引数でファイル指定がない場合は全体を対象にする
-                //もしくは、引数で指定されたファイルのみ対象にする
-                if (
-                    $isTargetSpecify === false
-                    || (in_array($path, $targetFiles, true) || in_array($className, $targetClasses, true))
-                ) {
-                    $classNames[] = $className;
-                }
-            }
-        }
+        $classNames = $this->getTargetClasses($dir);
 
         $lexer = new Lexer();
         $constExprParser = new ConstExprParser();
@@ -158,9 +142,9 @@ class GenerateCommand extends Command
     }
 
     /**
-     * @return array{0: bool, 1: string[], 2: string[]}
+     * @return string[]
      */
-    private function getTargetClassesAndFiles(): array
+    private function getTargetClasses(string $dir): array
     {
         $targets = $this->argument('targets');
         $targetClasses = [];
@@ -173,7 +157,24 @@ class GenerateCommand extends Command
             }
         }
 
-        return [count($targets) !== 0, $targetClasses, $targetFiles];
+        $isTargetSpecify = count($targets) !== 0;
+        $classNames = [];
+        if (is_dir($dir)) {
+            $classMap = ClassMapGenerator::createMap($dir);
+            ksort($classMap);
+            foreach ($classMap as $className => $path) {
+                //引数でファイル指定がない場合は全体を対象にする
+                //もしくは、引数で指定されたファイルのみ対象にする
+                if (
+                    $isTargetSpecify === false
+                    || (in_array($path, $targetFiles, true) || in_array($className, $targetClasses, true))
+                ) {
+                    $classNames[] = $className;
+                }
+            }
+        }
+
+        return $classNames;
     }
 
     /**
