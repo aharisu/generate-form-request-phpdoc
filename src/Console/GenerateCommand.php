@@ -2,12 +2,13 @@
 
 namespace aharisu\GenerateFormRequestPHPDoc\Console;
 
+use aharisu\GenerateFormRequestPHPDoc\ExternalPhpDoc\ExternalPhpDocFile;
 use aharisu\GenerateFormRequestPHPDoc\RuleNode;
 use Composer\ClassMapGenerator\ClassMapGenerator;
 use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Arr;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
@@ -32,7 +33,7 @@ class GenerateCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'form-request:generate {targets?* : The target files}';
+    protected $signature = 'form-request:generate {targets?* : The target files} {--write : Write in FormRequest class file}';
 
     /**
      * The console command description.
@@ -57,6 +58,16 @@ class GenerateCommand extends Command
         $dir = base_path($dir);
 
         $classNames = $this->getTargetClasses($dir);
+
+        $isWrite = $this->option('write');
+        $externalPhpDocFile = null;
+        //外部ファイルに書き込む場合は
+        if ($isWrite === false) {
+            //外部ファイルの内容を読み込みます
+            $externalPhpDocFileName = '_form_request_phpdoc.php';
+            $externalPhpDocFileName = base_path($externalPhpDocFileName);
+            $externalPhpDocFile = ExternalPhpDocFile::load($this->files, $externalPhpDocFileName);
+        }
 
         $lexer = new Lexer();
         $constExprParser = new ConstExprParser();
@@ -83,18 +94,19 @@ class GenerateCommand extends Command
 
                     $rules = $request->rules();
                 } catch (Exception $e) {
-                    $this->error(join(PHP_EOL, [
-                        "An error occurred.",
+                    $this->error(implode(PHP_EOL, [
+                        'An error occurred.',
                         "Class: {$className}",
                         "Message: {$e->getMessage()}",
                     ]));
+
                     continue;
                 }
                 $rulesTree = $this->parseRules($rules);
 
                 $phpDocNodeAry = $this->ruleNodeTreeToPropertyTagValueNode($rulesTree);
 
-                $doc = $reflectionClass->getDocComment();
+                $doc = $this->getClassPhpDoc($reflectionClass, $externalPhpDocFile);
                 $newDoc = null;
                 if ($doc !== false) {
                     $tokens = new TokenIterator($lexer->tokenize($doc));
@@ -118,24 +130,18 @@ class GenerateCommand extends Command
                     $newDoc = self::getPHPDocText(new PhpDocNode($phpDocNodeAry));
                 }
 
-                $filename = $reflectionClass->getFileName();
-                $contents = $this->files->get($filename);
-                if ($doc !== false) {
-                    $contents = str_replace($doc, $newDoc, $contents);
-                } else {
-                    $classShortName = $reflectionClass->getShortName();
-
-                    $replace = "{$newDoc}\n";
-                    $pos = strpos($contents, "final class {$classShortName}") ?: strpos($contents, "class {$classShortName}");
-                    if ($pos !== false) {
-                        $contents = substr_replace($contents, $replace, $pos, 0);
-                    }
-                }
-
-                if ($this->files->put($filename, $contents)) {
-                    $this->info('Written new phpDocBlock to ' . $filename);
-                }
+                $this->outputClassPhpDoc(
+                    $reflectionClass,
+                    $externalPhpDocFile,
+                    $doc,
+                    $newDoc
+                );
             }
+        }
+
+        //外部ファイルから読込みを行っている場合は、書き込みを行う
+        if ($externalPhpDocFile !== null) {
+            $externalPhpDocFile->outputExternalFile();
         }
 
         return 0;
@@ -165,8 +171,7 @@ class GenerateCommand extends Command
             foreach ($classMap as $className => $path) {
                 //引数でファイル指定がない場合は全体を対象にする
                 //もしくは、引数で指定されたファイルのみ対象にする
-                if (
-                    $isTargetSpecify === false
+                if ($isTargetSpecify === false
                     || (in_array($path, $targetFiles, true) || in_array($className, $targetClasses, true))
                 ) {
                     $classNames[] = $className;
@@ -251,7 +256,7 @@ class GenerateCommand extends Command
                 //入れ子構造のルール指定の整合性チェック
                 if ($key === $firstKey) {
                     //最初の要素はチェックをしない
-                } elseif ($node->typeName === null || $node->typeName === 'array') {
+                } elseif ($node->typeName === null || $node->typeName === 'array' || $node->typeName === 'mixed') {
                     //対応するノードの型名を詳細な配列型名に更新する
                     $node->typeName = $arrayTypeName;
                 } elseif ($node->typeName === 'indexed-array') {
@@ -378,5 +383,50 @@ class GenerateCommand extends Command
         }
 
         return "/**\n *" . implode("\n *", $children) . "\n */";
+    }
+
+    private function getClassPhpDoc(
+        ReflectionClass $reflectionClass,
+        ?ExternalPhpDocFile $externalPhpDocFile,
+    ): string|false {
+        if ($externalPhpDocFile !== null) {
+            $doc = $externalPhpDocFile->getClassPhpDoc(
+                $reflectionClass->getNamespaceName(),
+                $reflectionClass->getShortName()
+            );
+        } else {
+            $doc = $reflectionClass->getDocComment();
+        }
+
+        return $doc;
+    }
+
+    private function outputClassPhpDoc(
+        ReflectionClass $reflectionClass,
+        ?ExternalPhpDocFile $externalPhpDocFile,
+        string|false $oldPhpDocText,
+        string $newPhpDocText
+    ): void {
+        if ($externalPhpDocFile === null) {
+            $filename = $reflectionClass->getFileName();
+            $contents = $this->files->get($filename);
+            if ($oldPhpDocText !== false) {
+                $contents = str_replace($oldPhpDocText, $newPhpDocText, $contents);
+            } else {
+                $classShortName = $reflectionClass->getShortName();
+
+                $replace = "{$newPhpDocText}\n";
+                $pos = strpos($contents, "final class {$classShortName}") ?: strpos($contents, "class {$classShortName}");
+                if ($pos !== false) {
+                    $contents = substr_replace($contents, $replace, $pos, 0);
+                }
+            }
+
+            if ($this->files->put($filename, $contents)) {
+                $this->info('Written new phpDocBlock to ' . $filename);
+            }
+        } else {
+            $externalPhpDocFile->replaceClassPhpDoc($reflectionClass->getNamespaceName(), $reflectionClass->getShortName(), $newPhpDocText);
+        }
     }
 }
