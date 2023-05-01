@@ -203,12 +203,16 @@ class GenerateCommand extends Command
             if (gettype($rule) === 'string') {
                 $rule = Arr::first(explode(':', $rule));
                 $text = match ($rule) {
-                    'integer', 'int' => 'int',
+                    'integer', 'int', 'digits', 'digits_between' => 'int',
                     'numeric' => 'int|float',
-                    'string', 'email' => 'string',
+                    'string', 'email', 'url',
+                        'alpha', 'alpha_dash', 'alpha_num',
+                        'ip', 'ipv4', 'ipv6',
+                        'timezone', 'uuid', 'ulid' => 'string',
                     'boolean' => 'bool',
                     'array' => 'array',
-                    'file' => '\Illuminate\Http\UploadedFile',
+                    'file', 'image', 'mimes', 'mimetypes' => '\Illuminate\Http\UploadedFile',
+                    'json' => 'mixed',
                     default => null,
                 };
                 if ($text !== null) {
