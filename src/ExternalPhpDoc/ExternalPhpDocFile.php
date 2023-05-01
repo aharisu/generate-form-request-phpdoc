@@ -2,6 +2,7 @@
 
 namespace aharisu\GenerateFormRequestPHPDoc\ExternalPhpDoc;
 
+use aharisu\GenerateFormRequestPHPDoc\Config;
 use Exception;
 use Illuminate\Filesystem\Filesystem;
 use PhpParser\Node;
@@ -148,14 +149,14 @@ class ExternalPhpDocFile
     }
 
 
-    public function outputExternalFile(): void
+    public function outputExternalFile(Config $config): void
     {
         $texts = ["<?php"];
         foreach ($this->classes as $classData) {
             $text = <<<EOT
 namespace $classData->namespace {
 $classData->phpDoc
-class $classData->name extends \Illuminate\Foundation\Http\FormRequest {}
+class $classData->name extends $config->form_request_extends {}
 }
 EOT;
             $texts[] = $text;

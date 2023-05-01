@@ -8,6 +8,8 @@ use Illuminate\Support\ServiceProvider;
 
 class GenerateFormRequestPhpdocServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    private string $configFilename = 'generate-form-request-phpdoc.php';
+
     /**
      * Bootstrap the application events.
      *
@@ -15,6 +17,13 @@ class GenerateFormRequestPhpdocServiceProvider extends ServiceProvider implement
      */
     public function boot()
     {
+        $configPath = __DIR__ . '/../config/' . $this->configFilename;
+        if (function_exists('config_path')) {
+            $publishPath = config_path($this->configFilename);
+        } else {
+            $publishPath = base_path('config/' . $this->configFilename);
+        }
+        $this->publishes([$configPath => $publishPath], 'config');
     }
 
     /**
@@ -24,6 +33,9 @@ class GenerateFormRequestPhpdocServiceProvider extends ServiceProvider implement
      */
     public function register()
     {
+        $configPath = __DIR__ . '/../config/' . $this->configFilename;
+        $this->mergeConfigFrom($configPath, basename($this->configFilename, ".php"));
+
         $this->app->singleton(
             'command.gen-formrequest-phpdoc.generate',
             function ($app) {

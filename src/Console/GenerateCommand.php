@@ -2,6 +2,7 @@
 
 namespace aharisu\GenerateFormRequestPHPDoc\Console;
 
+use aharisu\GenerateFormRequestPHPDoc\Config;
 use aharisu\GenerateFormRequestPHPDoc\ExternalPhpDoc\ExternalPhpDocFile;
 use aharisu\GenerateFormRequestPHPDoc\RuleNode;
 use Composer\ClassMapGenerator\ClassMapGenerator;
@@ -54,17 +55,22 @@ class GenerateCommand extends Command
      */
     public function handle()
     {
-        $dir = 'app/Http/Requests';
-        $dir = base_path($dir);
+        $config = new Config();
 
-        $classNames = $this->getTargetClasses($dir);
+        $dirs = $config->scan_dirs;
+        $classNames = $this->getTargetClasses($dirs);
 
         $isWrite = $this->option('write');
+        //オプション指定がない場合は、デフォルト設定に従う
+        if ($isWrite == false) {
+            $isWrite = $config->default_write;
+        }
+
         $externalPhpDocFile = null;
         //外部ファイルに書き込む場合は
         if ($isWrite === false) {
             //外部ファイルの内容を読み込みます
-            $externalPhpDocFileName = '_form_request_phpdoc.php';
+            $externalPhpDocFileName = $config->filename;
             $externalPhpDocFileName = base_path($externalPhpDocFileName);
             $externalPhpDocFile = ExternalPhpDocFile::load($this->files, $externalPhpDocFileName);
         }
@@ -141,16 +147,17 @@ class GenerateCommand extends Command
 
         //外部ファイルから読込みを行っている場合は、書き込みを行う
         if ($externalPhpDocFile !== null) {
-            $externalPhpDocFile->outputExternalFile();
+            $externalPhpDocFile->outputExternalFile($config);
         }
 
         return 0;
     }
 
     /**
+     * @param string[] $dirs
      * @return string[]
      */
-    private function getTargetClasses(string $dir): array
+    private function getTargetClasses(array $dirs): array
     {
         $targets = $this->argument('targets');
         $targetClasses = [];
@@ -165,21 +172,39 @@ class GenerateCommand extends Command
 
         $isTargetSpecify = count($targets) !== 0;
         $classNames = [];
-        if (is_dir($dir)) {
-            $classMap = ClassMapGenerator::createMap($dir);
-            ksort($classMap);
-            foreach ($classMap as $className => $path) {
-                //引数でファイル指定がない場合は全体を対象にする
-                //もしくは、引数で指定されたファイルのみ対象にする
-                if ($isTargetSpecify === false
-                    || (in_array($path, $targetFiles, true) || in_array($className, $targetClasses, true))
-                ) {
-                    $classNames[] = $className;
+        foreach ($dirs as $dir) {
+            $dir = $this->toAbsolutePath($dir);
+            if (is_dir($dir)) {
+                $classMap = ClassMapGenerator::createMap($dir);
+                ksort($classMap);
+                foreach ($classMap as $className => $path) {
+                    //引数でファイル指定がない場合は全体を対象にする
+                    //もしくは、引数で指定されたファイルのみ対象にする
+                    if ($isTargetSpecify === false
+                        || (in_array($path, $targetFiles, true) || in_array($className, $targetClasses, true))
+                    ) {
+                        $classNames[] = $className;
+                    }
                 }
             }
         }
 
         return $classNames;
+    }
+
+    private function toAbsolutePath(string $path): string
+    {
+        // Windowsの絶対パスの場合
+        if (preg_match('/^[a-zA-Z]:\\\\/', $path)) {
+            return $path;
+        }
+
+        // Unixの絶対パスの場合
+        if (substr($path, 0, 1) === '/') {
+            return $path;
+        }
+
+        return base_path($path);
     }
 
     /**
