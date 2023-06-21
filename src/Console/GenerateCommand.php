@@ -20,6 +20,7 @@ use PHPStan\PhpDocParser\Ast\Type\ArrayTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\IdentifierTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\NullableTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\TypeNode;
+use PHPStan\PhpDocParser\Ast\Type\UnionTypeNode;
 use PHPStan\PhpDocParser\Lexer\Lexer;
 use PHPStan\PhpDocParser\Parser\ConstExprParser;
 use PHPStan\PhpDocParser\Parser\PhpDocParser;
@@ -388,7 +389,17 @@ class GenerateCommand extends Command
                     var_dump($node);
                     throw new Exception("don't have child property information. {$node->name}: {$node->typeName}");
                 }
-                $type = new IdentifierTypeNode($node->typeName);
+                $typeName = $node->typeName;
+                // 型が|で区切られている場合は、
+                if (strpos($typeName, '|') !== false) {
+                    //UnionTypeNodeに変換する
+                    $type = new UnionTypeNode(
+                        array_map(
+                            fn($name) => new IdentifierTypeNode($name),
+                            explode('|', $typeName)));
+                } else {
+                    $type = new IdentifierTypeNode($node->typeName);
+                }
                 break;
         }
 
