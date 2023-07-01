@@ -94,7 +94,7 @@ class GenerateCommand extends Command
                 }
 
                 try {
-                    $request = new $className();
+                    $request = $reflectionClass->newInstanceWithoutConstructor();
                     if (method_exists($request, 'rules') === false) {
                         continue;
                     }
